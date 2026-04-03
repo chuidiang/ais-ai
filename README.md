@@ -20,6 +20,13 @@ pip install -r requirements.txt
 
 ## 3) Preparar datos
 
+### Fuente de datos AIS
+
+Los datos AIS de entrenamiento y pruebas se han descargado de:
+https://coast.noaa.gov/htdata/CMSP/AISDataHandler/2025/index.html
+
+---
+
 El repositorio puede incluir un ejemplo pequeño para pruebas rápidas:
 
 - `data/ais-data-sample.csv`
@@ -33,13 +40,13 @@ Importante:
 - `ais-data.csv` debe tener el mismo formato de columnas que `data/ais-data-sample.csv`.
 - El sample sirve como referencia del esquema esperado.
 
-Opcionalmente, coloca el shapefile del mapa mundial en:
+Los archivos del shapefile del mapa mundial están incluidos en:
 
 - `shp/world.shp`
 - `shp/world.shx`
 - `shp/world.dbf`
 
-Esos tres son los únicos ficheros del shapefile necesarios para que el código genere el mapa base.
+Estos ficheros se utilizan para generar el mapa base en los gráficos de anomalías.
 
 ## 4) Entrenar y exportar modelo
 
@@ -76,11 +83,10 @@ El tooltip del grafico interactivo muestra:
 - `anomaly_score`
 - todas las features usadas por el modelo
 
-Si existe `shp/world.shp`, se dibuja el contorno del mapa mundial como capa base.
+El contorno de `shp/world.shp` se dibuja como capa base del mapa mundial.
 
 ---
 
 ## Autor
 
 Hecho por **Copilot** bajo la experta (y paciente) dirección de **Chuidiang**. 🤖✨
-
