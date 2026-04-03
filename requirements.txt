@@ -6,4 +6,5 @@ plotly
 shap
 pyshp
 geopandas
+h3
 

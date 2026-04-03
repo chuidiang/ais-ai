@@ -53,6 +53,8 @@ shp/*
 # Logs / temp
 # -----------------------------
 *.log
+/logs_*.txt
+CACHEDIR.TAG
 *.tmp
 *.bak
 
