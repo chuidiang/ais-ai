@@ -18,7 +18,13 @@ __pycache__/
 venv/
 env/
 ENV/
-Scripts/
+Scripts/*
+!Scripts/activate
+!Scripts/activate.bat
+!Scripts/activate.fish
+!Scripts/activate.nu
+!Scripts/activate.ps1
+!Scripts/Activate.ps1
 Lib/
 Include/
 pyvenv.cfg
