@@ -1,0 +1,59 @@
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# -----------------------------
+# Virtual environments
+# -----------------------------
+.venv/
+venv/
+env/
+ENV/
+Scripts/
+Lib/
+Include/
+pyvenv.cfg
+
+# -----------------------------
+# Build / packaging
+# -----------------------------
+build/
+dist/
+pip-wheel-metadata/
+
+# -----------------------------
+# Project outputs (generated)
+# -----------------------------
+models/
+plots/
+data/*.csv
+!data/ais-data-sample.csv
+data/anomalies_summary.csv
+shp/*
+!shp/world.shp
+!shp/world.shx
+!shp/world.dbf
+
+# -----------------------------
+# Logs / temp
+# -----------------------------
+*.log
+*.tmp
+*.bak
+
+# -----------------------------
+# IDE / OS
+# -----------------------------
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
