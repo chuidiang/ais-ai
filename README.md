@@ -27,18 +27,17 @@ https://coast.noaa.gov/htdata/CMSP/AISDataHandler/2025/index.html
 
 ---
 
-El repositorio puede incluir un ejemplo pequeño para pruebas rápidas:
+El repositorio incluye un ejemplo pequeño para pruebas rápidas y como ejemplo de formato esperado:
 
 - `data/ais-data-sample.csv`
 
-Para ejecutar el flujo completo con tus datos, coloca el fichero AIS principal en:
+Para ejecutar el flujo completo con tus datos, coloca el fichero AIS para entrenamiento en:
 
 - `data/ais-data.csv`
 
 Importante:
 
 - `ais-data.csv` debe tener el mismo formato de columnas que `data/ais-data-sample.csv`.
-- El sample sirve como referencia del esquema esperado.
 
 Los archivos del shapefile del mapa mundial están incluidos en:
 
@@ -50,22 +49,27 @@ Estos ficheros se utilizan para generar el mapa base en los gráficos de anomal�
 
 ## 4) Entrenar y exportar modelo
 
+Si has colocado tu dataset en `data/ais-data.csv`, ejecuta el entrenamiento:
+
 ```powershell
 python train_anomaly.py
 ```
-
-Para una prueba rápida con el dataset de ejemplo puedes generar gráficos directamente:
-
-```powershell
-python plot_anomalies.py data/ais-data-sample.csv --suffix demo_sample
-```
-
-Artefactos exportados en `models/`:
+En `models/` se guardan los datos del modelo entrenado:
 
 - `isolation_forest_model.joblib`
 - `scaler.joblib`
 - `imputer.joblib`
 - `metadata.json`
+
+Una vez entrenado el modelo y creados, por tanto, esos ficheros, puedes probarlo con el comando siguiente:
+
+```powershell
+python plot_anomalies.py data/ais-data-sample.csv --suffix demo_sample
+```
+donde 
+- ais-data-sample.csv es el dataset con los datos en los que quieres detectar anomalías
+- --suffix es el sufijo que se añadirá a los nombres de los archivos de salida para diferenciarlos.
+
 
 ## 5) Generar graficos de anomalias
 
