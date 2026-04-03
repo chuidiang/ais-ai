@@ -1,200 +1,140 @@
-# AIS Anomaly Detection
+# AIS Anomaly Detection (H3)
 
-Pipeline para deteccion de anomalias AIS con Isolation Forest, explicaciones SHAP y visualizacion geografica.
+Proyecto Python para deteccion de anomalias AIS con `IsolationForest`,
+contexto geografico H3 y graficos interactivos.
 
-## 0) Requisitos tecnicos
+## Scripts principales (estado actual)
 
-Para usar el proyecto desde cero, **si necesitas tener Python instalado**.
+- `load_ais_data.py`: carga y preproceso AIS (fechas, limpieza, H3).
+- `train_anomaly.py`: entrenamiento y exportacion de artefactos.
+- `predict_realtime.py`: inferencia batch y por registro.
+- `plot_anomalies.py`: grafico HTML de anomalias.
 
-Version de Python recomendada y compatible con las librerias de `requirements.txt`:
+## Requisitos
 
-- **Minima para todas las dependencias actuales**: `Python >= 3.11`
-- **Probada en este repositorio**: `Python 3.14.3`
-- Recomendacion practica: usar `Python 3.14.x` para reproducir el entorno de este repo.
+- Python `>=3.11` (recomendado `3.14.x`).
+- Dependencias en `requirements.txt`.
 
-Comprobacion rapida en **PowerShell (Windows)**:
-
-```powershell
-python --version
-```
-
-## 1) Clonar el repositorio
-
-Comandos de **PowerShell (Windows)**:
-
-```powershell
-git clone <URL_DEL_REPOSITORIO>
-cd ais-ai
-```
-
-## 2) Crear y activar entorno virtual
-
-Comandos de **PowerShell (Windows)**:
+## Instalacion rapida (PowerShell)
 
 ```powershell
 python -m venv .venv
-.\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Nota: si en tu copia local ya existe un entorno virtual en la raiz del repo,
-tambien puedes activar `Scripts/Activate.ps1`.
+Si ya usas el entorno del repo, puedes ejecutar con `Scripts\python.exe`.
 
-Scripts de activacion incluidos en `Scripts/` para distintos shells:
+## Datos de entrada
 
-- `activate` (sh/bash)
-- `activate.fish`
-- `activate.nu`
-- `activate.bat` (cmd)
-- `Activate.ps1` / `activate.ps1` (PowerShell)
+- Entrenamiento completo: `data/ais-data.csv`
+- Pruebas rapidas (inferencia/graficos): `data/ais-data-sample.csv`
 
-## 3) Preparar datos
-
-### Fuente de datos AIS
-
-Los datos AIS de entrenamiento y pruebas se han descargado de:
-https://coast.noaa.gov/htdata/CMSP/AISDataHandler/2025/index.html
-
----
-
-El repositorio incluye un ejemplo pequeño para pruebas rápidas y como ejemplo de formato esperado:
-
-- `data/ais-data-sample.csv`
-
-Para ejecutar el flujo completo con tus datos, coloca el fichero AIS para entrenamiento en:
-
-- `data/ais-data.csv`
-
-Importante:
-
-- `ais-data.csv` debe tener el mismo formato de columnas que `data/ais-data-sample.csv`.
-
-Los archivos del shapefile del mapa mundial están incluidos en:
+Tambien se usa el mapa base desde:
 
 - `shp/world.shp`
 - `shp/world.shx`
 - `shp/world.dbf`
 
-Estos ficheros se utilizan para generar el mapa base en los gráficos de anomalías.
+## Flujo recomendado
 
-## 4) Entrenar y exportar modelo
-
-Si has colocado tu dataset en `data/ais-data.csv`, ejecuta el entrenamiento.
-
-Comando de **PowerShell (Windows)**:
+### 1) Entrenar modelo
 
 ```powershell
 python train_anomaly.py
 ```
-En `models/` se guardan los datos del modelo entrenado:
+
+Artefactos generados en `models/`:
 
 - `isolation_forest_model.joblib`
 - `scaler.joblib`
 - `imputer.joblib`
+- `h3_stats.joblib`
+- `h3_parent_stats.joblib`
+- `h3_config.json`
 - `metadata.json`
 
-Una vez entrenado el modelo y creados, por tanto, esos ficheros, puedes probarlo con el comando siguiente.
+Ademas se genera `data/anomalies_summary.csv`.
 
-Comando de **PowerShell (Windows)**:
+### 2) Inferencia
+
+Batch por CLI:
+
+```powershell
+python predict_realtime.py
+python predict_realtime.py data/ais-data-sample.csv
+```
+
+Como modulo:
+
+```python
+from predict_realtime import AISAnomalyDetector
+from load_ais_data import preprocess
+
+detector = AISAnomalyDetector()
+df = preprocess("data/ais-data-sample.csv")
+out = detector.predict(df)
+print(out[["is_anomaly", "anomaly_score", "anomaly_reason"]].head())
+```
+
+### 3) Graficos
+
+Ruta rapida (recomendada para pruebas):
 
 ```powershell
 python plot_anomalies.py data/ais-data-sample.csv --suffix demo_sample
 ```
-donde 
-- ais-data-sample.csv es el dataset con los datos en los que quieres detectar anomalías
-- --suffix es el sufijo que se añadirá a los nombres de los archivos de salida para diferenciarlos.
 
-
-## 5) Generar graficos de anomalias
-
-Comando de **PowerShell (Windows)**:
+Ruta por defecto (si no pasas `csv_path`, usa `data/ais-data.csv`):
 
 ```powershell
-python plot_anomalies.py --suffix con_shap_reason
+python plot_anomalies.py --suffix h3_full
 ```
 
-Salida:
+Forzar pipeline completo de prediccion (mas lento):
+
+```powershell
+python plot_anomalies.py data/ais-data-sample.csv --suffix full_mode --full
+```
+
+Salida principal:
 
 - `plots/anomalies_scatter_<suffix>.html`
 
-Ejemplo de salida:
+## Modelo actual
 
-![Ejemplo de salida de anomalías](./output-sample.png)
+El modelo usa `IsolationForest` con:
 
-El tooltip del grafico interactivo muestra:
+- `n_estimators=100`
+- `max_samples=1024`
+- `contamination=0.01`
+- `random_state=42`
 
-- `anomaly_reason` (`Motivo`)
-- `anomaly_score`
-- todas las features usadas por el modelo
+Features actuales (23):
 
-El contorno de `shp/world.shp` se dibuja como capa base del mapa mundial.
+- Temporales: `hour_sin`, `hour_cos`, `day_of_week`, `month`
+- Dinamicas: `sog`, `cog`, `heading`, `status`
+- Estaticas: `vessel_type`, `length`, `width`, `draft`
+- Contexto H3:
+  - `hex_log_density`, `is_sparse_hex`, `is_new_hex`
+  - `sog_delta_hex_med`, `sog_z_hex`
+  - `cog_delta_sin_hex`, `cog_delta_cos_hex`
+  - `heading_delta_sin_hex`, `heading_delta_cos_hex`
+  - `vtype_mode_share_hex`, `is_unusual_vtype_hex`
 
-## 6) Modo tecnico: experimentos para desarrolladores
+Nota: `cargo` ya no se usa como feature del modelo.
 
-Este apartado resume la interfaz real de los scripts para que puedas experimentar con parametros y datasets sin adivinar opciones.
+## Salidas de inferencia
 
-### `plot_anomalies.py`
+Columnas anadidas por inferencia:
 
-`plot_anomalies.py` acepta:
+- `is_anomaly` (`-1` anomalo, `1` normal)
+- `anomaly_score` (mas negativo = mas anomalo)
+- `anomaly_reason` (via SHAP, con fallback)
 
-- `csv_path` (posicional, opcional): ruta del CSV AIS de entrada.
-- `--suffix` (opcional): sufijo para el HTML de salida.
+## Consejos practicos
 
-Si **no** pasas `csv_path`, usa el valor por defecto definido en `load_ais_data.py` (`CSV_FILE`), que apunta a `data/ais-data.csv`.
-
-Con fichero explicito (PowerShell):
-
-```powershell
-python plot_anomalies.py data/ais-data-sample.csv --suffix demo_sample
-```
-
-Sin fichero explicito (usa `data/ais-data.csv` por defecto):
-
-```powershell
-python plot_anomalies.py --suffix experimento_default
-```
-
-Sin `--suffix`, el script usa timestamp (`YYYYMMDD_HHMMSS`) para versionar la salida automaticamente.
-
-```powershell
-python plot_anomalies.py
-```
-
-Salida esperada: `plots/anomalies_scatter_<suffix>.html` (o `plots/anomalies_scatter.html` si no hay sufijo).
-
-### `train_anomaly.py`
-
-`train_anomaly.py` **no expone argumentos CLI** ahora mismo. Se ejecuta asi:
-
-```powershell
-python train_anomaly.py
-```
-
-Para experimentar, ajusta constantes en `train_anomaly.py` y vuelve a lanzar:
-
-- `CONTAMINATION`: porcentaje esperado de anomalias.
-- `N_ESTIMATORS`: numero de arboles del Isolation Forest.
-- `MAX_SAMPLES`: muestras por arbol.
-- `RANDOM_STATE`: semilla para reproducibilidad.
-- `HEADING_NO_DISP`: valor AIS para heading no disponible (`511`).
-
-Tambien puedes experimentar con el preprocesado desde `load_ais_data.py`:
-
-- `GRID_SIZE_DEG`: tamano de celda geografica.
-- rangos validos (`LAT_MIN/LAT_MAX`, `LON_MIN/LON_MAX`, `SOG_MIN/SOG_MAX`, `COG_MIN/COG_MAX`).
-
-Flujo tipico de experimento (PowerShell):
-
-```powershell
-python train_anomaly.py
-python plot_anomalies.py --suffix exp_cont_001
-```
-
-Consejo practico: cambia un parametro cada vez (por ejemplo `CONTAMINATION` o `GRID_SIZE_DEG`) y compara el HTML resultante y `data/anomalies_summary.csv` entre ejecuciones.
-
----
-
-## Autor
-
-Hecho por **Copilot** bajo la experta (y paciente) dirección de **Chuidiang**. 🤖✨
+- Para entrenar, usa `data/ais-data.csv`.
+- Para pruebas de inferencia y graficos, usa `data/ais-data-sample.csv`.
+- Si cambias el esquema de features, reentrena antes de inferir.
