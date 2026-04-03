@@ -101,6 +101,10 @@ Salida principal:
 
 - `plots/anomalies_scatter_<suffix>.html`
 
+Ejemplo de salida de `plot_anomalies.py`:
+
+![Ejemplo de salida de plot_anomalies.py](output-sample.png)
+
 ## Modelo actual
 
 El modelo usa `IsolationForest` con:
