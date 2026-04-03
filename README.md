@@ -77,6 +77,10 @@ Salida:
 
 - `plots/anomalies_scatter_<suffix>.html`
 
+Ejemplo de salida:
+
+![Ejemplo de salida de anomalías](./output-sample.png)
+
 El tooltip del grafico interactivo muestra:
 
 - `anomaly_reason` (`Motivo`)
