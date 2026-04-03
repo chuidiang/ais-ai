@@ -28,14 +28,10 @@ Si ya usas el entorno del repo, puedes ejecutar con `Scripts\python.exe`.
 
 ## Datos de entrada
 
-- Entrenamiento completo: `data/ais-data.csv`
-- Pruebas rapidas (inferencia/graficos): `data/ais-data-sample.csv`
+- Entrenamiento completo: Coloca los datos de entrenamiento en `data/ais-data.csv`. El formato del CSV debe ser el mismo que el de data/ais-data-sample.csv, con las mismas columnas y tipos de datos.
+- Pruebas rapidas (inferencia/graficos): `data/ais-data-sample.csv` u otro fichero de formato similar con los datos que quieras probar.
 
-Tambien se usa el mapa base desde:
-
-- `shp/world.shp`
-- `shp/world.shx`
-- `shp/world.dbf`
+Los datos para entrenamiento y ejemplo se han bajado de https://coast.noaa.gov/htdata/CMSP/AISDataHandler/2025/index.html
 
 ## Flujo recomendado
 
@@ -80,22 +76,25 @@ print(out[["is_anomaly", "anomaly_score", "anomaly_reason"]].head())
 
 ### 3) Graficos
 
+Genera un mapa html interactivo con las anomalias detectadas.
+
+Para el mapa del mundo usa los ficheros:
+
+- `shp/world.shp`
+- `shp/world.shx`
+- `shp/world.dbf`
+
+
 Ruta rapida (recomendada para pruebas):
 
 ```powershell
 python plot_anomalies.py data/ais-data-sample.csv --suffix demo_sample
 ```
 
-Ruta por defecto (si no pasas `csv_path`, usa `data/ais-data.csv`):
+Ruta por defecto (si no pasas `csv_path`, usa `data/ais-data.csv`), que al ser todos los datos de entrenamiento será más lento.
 
 ```powershell
 python plot_anomalies.py --suffix h3_full
-```
-
-Forzar pipeline completo de prediccion (mas lento):
-
-```powershell
-python plot_anomalies.py data/ais-data-sample.csv --suffix full_mode --full
 ```
 
 Salida principal:
@@ -138,3 +137,52 @@ Columnas anadidas por inferencia:
 - Para entrenar, usa `data/ais-data.csv`.
 - Para pruebas de inferencia y graficos, usa `data/ais-data-sample.csv`.
 - Si cambias el esquema de features, reentrena antes de inferir.
+
+## Seccion tecnica: parametros de configuracion del entrenamiento
+
+Estos son los parametros principales que controlan el entrenamiento actual en `train_anomaly.py`.
+
+### Isolation Forest
+
+- `CONTAMINATION = 0.01`: porcentaje objetivo de anomalias.
+- `N_ESTIMATORS = 100`: numero de arboles.
+- `MAX_SAMPLES = 1024`: muestras por arbol.
+- `RANDOM_STATE = 42`: semilla para reproducibilidad.
+
+### Preprocesado y transformacion
+
+- `HEADING_NO_DISP = 511`: valor AIS para heading no disponible.
+- Imputacion: `SimpleImputer(strategy="median")`.
+- Escalado: `StandardScaler()`.
+
+### Contexto geografico H3
+
+Definidos en `load_ais_data.py` y usados durante entrenamiento/inferencia:
+
+- `H3_RESOLUTION = 7`.
+- `H3_PARENT_RESOLUTION = 5`.
+- `H3_MIN_OBS = 500`: umbral de cobertura local.
+- `H3_VTYPE_MIN_SHARE = 0.55`: share minimo para activar rareza de tipo.
+
+### Features efectivas del modelo
+
+`FEATURE_COLS` se construye con:
+
+- Temporales: `hour_sin`, `hour_cos`, `day_of_week`, `month`.
+- Dinamicas: `sog`, `cog`, `heading`, `status`.
+- Estaticas: `vessel_type`, `length`, `width`, `draft`.
+- H3: `hex_log_density`, `is_sparse_hex`, `is_new_hex`,
+  `sog_delta_hex_med`, `sog_z_hex`,
+  `cog_delta_sin_hex`, `cog_delta_cos_hex`,
+  `heading_delta_sin_hex`, `heading_delta_cos_hex`,
+  `vtype_mode_share_hex`, `is_unusual_vtype_hex`.
+
+### Artefactos que reflejan esta configuracion
+
+- `models/metadata.json`: features finales e hiperparametros.
+- `models/h3_config.json`: configuracion H3 y estadisticas globales.
+
+## Autoria
+
+Lo ha hecho Copilot con "experta" supervision de Chuidiang.
+
