@@ -120,6 +120,13 @@ def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
             "score: " + _fmt(subset["anomaly_score"], 4)
         )
 
+        # Solo para anomalías añade motivo basado en feature dominante
+        if "is_anomaly" in subset.columns and "anomaly_reason" in subset.columns:
+            reason = subset["anomaly_reason"].fillna("")
+            is_anom = subset["is_anomaly"] == -1
+            reason = reason.where(is_anom, "")
+            hover = hover + reason.map(lambda r: f"<br>Motivo: {r}" if r else "")
+
         return go.Scattergl(
             x=subset["longitude"],
             y=subset["latitude"],
