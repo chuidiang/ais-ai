@@ -1,6 +1,6 @@
 # AIS Anomaly Detection
 
-Pipeline para deteccion de anomalias AIS con Isolation Forest, explicaciones SHAP y visualizacion geografica.
+Pipeline para deteccion de anomalias AIS con Isolation Forest y visualizacion geografica.
 
 ## 1) Clonar el repositorio
 
@@ -57,8 +57,23 @@ Artefactos exportados en `models/`:
 
 - `isolation_forest_model.joblib`
 - `scaler.joblib`
-- `imputer.joblib`
 - `metadata.json`
+
+Features actuales del modelo:
+
+- `latitude`
+- `longitude`
+- `vessel_type_mapped` (transformado)
+
+Transformacion de `vessel_type`:
+
+- 1x -> 10
+- 2x -> 20
+- 6x -> 60
+- 7x -> 70
+- 8x -> 80
+- 9x -> 90
+- nulo / desconocido / otros -> 0
 
 ## 5) Generar graficos de anomalias
 
@@ -70,11 +85,7 @@ Salida:
 
 - `plots/anomalies_scatter_<suffix>.html`
 
-El tooltip del grafico interactivo muestra:
-
-- `anomaly_reason` (`Motivo`)
-- `anomaly_score`
-- todas las features usadas por el modelo
+El tooltip del grafico interactivo muestra `anomaly_score`, `vessel_type` y `vessel_type_mapped`.
 
 Si existe `shp/world.shp`, se dibuja el contorno del mapa mundial como capa base.
 

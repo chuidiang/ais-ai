@@ -31,11 +31,11 @@ CONTAMINATION = 0.01
 N_ESTIMATORS = 100
 MAX_SAMPLES = 1024
 RANDOM_STATE = 42
-FEATURE_COLS = ["latitude", "longitude"]
+FEATURE_COLS = ["latitude", "longitude", "vessel_type_mapped"]
 
 
 def prepare_features(df: pd.DataFrame) -> tuple[np.ndarray, StandardScaler]:
-    """Escala lat/lon."""
+    """Escala lat/lon y vessel_type_mapped."""
     X = df[FEATURE_COLS].copy()
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -82,7 +82,7 @@ def predict_and_label(
 
 def save_anomaly_report(df: pd.DataFrame, path: str) -> None:
     anomalies = df[df["is_anomaly"] == -1][
-        ["mmsi", "vessel_name", "base_date_time", "latitude", "longitude", "anomaly_score"]
+        ["mmsi", "vessel_name", "base_date_time", "latitude", "longitude", "vessel_type_mapped", "anomaly_score"]
     ].sort_values("anomaly_score")
     anomalies.to_csv(path, index=False)
     print(f"[INFO] Resumen guardado: {path} ({len(anomalies):,} anomalías)")

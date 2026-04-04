@@ -120,6 +120,13 @@ def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
             "score: " + _fmt(subset["anomaly_score"], 4)
         )
 
+        if "vessel_type" in subset.columns:
+            hover = hover + "<br>vessel_type: " + _fmt(subset["vessel_type"], 0)
+        if "vessel_type_mapped" in subset.columns:
+            hover = hover + "<br>vessel_type_mapped: " + _fmt(subset["vessel_type_mapped"], 0)
+        if name.lower().startswith("anomaly") and "anomaly_reason" in subset.columns:
+            hover = hover + "<br>Motivo: " + subset["anomaly_reason"].fillna("").astype(str)
+
         return go.Scattergl(
             x=subset["longitude"],
             y=subset["latitude"],
