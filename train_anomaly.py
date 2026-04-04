@@ -16,6 +16,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
 from load_ais_data import CSV_FILE, preprocess
+from spatial_context import CTX_FEATURE_COLS, add_spatial_context_features, fit_spatial_context_model
 
 BASE_DIR = os.path.dirname(__file__)
 MODELS_DIR = os.path.join(BASE_DIR, "models")
@@ -25,6 +26,7 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 MODEL_PATH = os.path.join(MODELS_DIR, "isolation_forest_model.joblib")
 SCALER_PATH = os.path.join(MODELS_DIR, "scaler.joblib")
 METADATA_PATH = os.path.join(MODELS_DIR, "metadata.json")
+CONTEXT_PATH = os.path.join(MODELS_DIR, "context_model.joblib")
 ANOMALIES_CSV = os.path.join(DATA_DIR, "anomalies_summary.csv")
 
 CONTAMINATION = 0.01
@@ -35,8 +37,27 @@ FEATURE_COLS = [
     "latitude", "longitude", "vessel_type_mapped",
     "status", "sog",
     "cog_sin", "cog_cos",
-    "heading_sin", "heading_cos"
-]
+    "heading_sin", "heading_cos",
+] + CTX_FEATURE_COLS
+
+
+def build_score_calibration(scores: pd.Series, n_points: int = 201) -> dict:
+    """Construye una curva CDF(score) por percentiles para calibrar fiabilidad."""
+    s = pd.to_numeric(scores, errors="coerce").dropna().astype(float).values
+    if s.size == 0:
+        return {
+            "method": "train_score_percentile",
+            "score_grid": [0.0],
+            "cdf_grid": [1.0],
+        }
+
+    q_grid = np.linspace(0.0, 1.0, n_points)
+    score_grid = np.quantile(s, q_grid).astype(float)
+    return {
+        "method": "train_score_percentile",
+        "score_grid": score_grid.tolist(),
+        "cdf_grid": q_grid.tolist(),
+    }
 
 
 def prepare_features(df: pd.DataFrame) -> tuple[np.ndarray, StandardScaler]:
@@ -86,10 +107,21 @@ def predict_and_label(
 
 
 def save_anomaly_report(df: pd.DataFrame, path: str) -> None:
-    anomalies = df[df["is_anomaly"] == -1][
-        ["mmsi", "vessel_name", "base_date_time", "latitude", "longitude", "vessel_type_mapped",
-         "sog", "status", "anomaly_score"]
-    ].sort_values("anomaly_score")
+    cols = [
+        "mmsi",
+        "vessel_name",
+        "base_date_time",
+        "latitude",
+        "longitude",
+        "vessel_type_mapped",
+        "sog",
+        "status",
+        "anomaly_score",
+    ]
+    if "anomaly_reliability_pct" in df.columns:
+        cols.append("anomaly_reliability_pct")
+    cols += [c for c in CTX_FEATURE_COLS if c in df.columns]
+    anomalies = df[df["is_anomaly"] == -1][cols].sort_values("anomaly_score")
     anomalies.to_csv(path, index=False)
     print(f"[INFO] Resumen guardado: {path} ({len(anomalies):,} anomalías)")
     if not anomalies.empty:
@@ -100,6 +132,8 @@ def save_anomaly_report(df: pd.DataFrame, path: str) -> None:
 def save_artifacts(
     model: IsolationForest,
     scaler: StandardScaler,
+    context_model: dict,
+    score_calibration: dict,
     contamination: float = CONTAMINATION,
     n_estimators: int = N_ESTIMATORS,
     max_samples: int = MAX_SAMPLES,
@@ -112,10 +146,12 @@ def save_artifacts(
 
     model_path = os.path.join(models_dir, "isolation_forest_model.joblib")
     scaler_path = os.path.join(models_dir, "scaler.joblib")
+    context_path = os.path.join(models_dir, "context_model.joblib")
     metadata_path = os.path.join(models_dir, "metadata.json")
 
     joblib.dump(model, model_path)
     joblib.dump(scaler, scaler_path)
+    joblib.dump(context_model, context_path)
 
     metadata = {
         "trained_at": datetime.now(timezone.utc).isoformat(),
@@ -130,6 +166,8 @@ def save_artifacts(
         "preprocessing": {
             "discard_missing_status": discard_missing_status,
         },
+        "context_features": CTX_FEATURE_COLS,
+        "score_calibration": score_calibration,
     }
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
@@ -164,10 +202,24 @@ def main(
     discard_missing_status: bool = False,
 ) -> pd.DataFrame:
     df = preprocess(csv_path, discard_missing_status=discard_missing_status)
+    context_model = fit_spatial_context_model(df)
+    df = add_spatial_context_features(df, context_model)
     X_scaled, scaler = prepare_features(df)
     model = train_model(X_scaled, contamination, n_estimators, max_samples, random_state)
     df = predict_and_label(df, model, X_scaled)
-    save_artifacts(model, scaler, contamination, n_estimators, max_samples, random_state, models_dir, discard_missing_status)
+    score_calibration = build_score_calibration(df["anomaly_score"])
+    save_artifacts(
+        model,
+        scaler,
+        context_model,
+        score_calibration,
+        contamination,
+        n_estimators,
+        max_samples,
+        random_state,
+        models_dir,
+        discard_missing_status,
+    )
     save_anomaly_report(df, anomalies_csv)
     return df
 

@@ -2,7 +2,7 @@
 
 ## Features Utilizadas
 
-El modelo de detección de anomalías utiliza las siguientes 9 features:
+El modelo de detección de anomalías utiliza las siguientes 13 features:
 
 ### 1. **Posición Geográfica** (2 features)
 - `latitude`: Latitud en grados (-90 a 90)
@@ -49,6 +49,16 @@ El modelo de detección de anomalías utiliza las siguientes 9 features:
   - 15 = Default/Unknown (desconocido/nulo)
 - Escalada con StandardScaler
 - **Imputación de nulos**: Por defecto, los valores nulos se convierten a 15 (unknown)
+
+### 7. **Contexto espacial multimodal** (4 features)
+- `sog_ctx_logprob`: log-probabilidad local de la velocidad en su celda
+- `cog_ctx_logprob`: log-probabilidad local del rumbo (bin angular) en su celda
+- `vessel_type_ctx_logprob`: log-probabilidad local del tipo de barco en su celda
+- `status_ctx_logprob`: log-probabilidad local del estado de navegación en su celda
+
+Estas features se calculan por celda espacial regular (grid) usando conteos suavizados
+con Laplace. Permiten detectar casos inusuales incluso cuando hay varias velocidades
+o rumbos frecuentes en la misma zona.
 
 ## Opciones de Preprocesamiento
 
@@ -99,8 +109,9 @@ Cuando predices una fila, el sistema:
 2. Imputa `status=15` si falta
 3. Llena con 0 si faltan `sog`, `cog`, `heading`
 4. Calcula sin/cos automáticamente
-5. Escala todas las features
-6. Realiza predicción
+5. Calcula las 4 log-probabilidades de contexto espacial
+6. Escala todas las features
+7. Realiza predicción
 
 ### En `plot_anomalies.py`
 - El hover muestra las nuevas features: `status` y `sog`

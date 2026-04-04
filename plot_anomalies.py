@@ -113,12 +113,16 @@ def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
         return series.fillna("N/A").astype(str)
 
     def make_trace(subset, name, color, opacity, size):
+        score_text = "score: " + _fmt(subset["anomaly_score"], 4)
+        if name.lower().startswith("anomaly") and "anomaly_reliability_pct" in subset.columns:
+            score_text = score_text + " (fiabilidad: " + _fmt(subset["anomaly_reliability_pct"], 1) + "%)"
+
         hover = (
             "<b>" + subset["vessel_name"].fillna("Unknown") + "</b><br>" +
             "MMSI: " + subset["mmsi"].astype(str) + "<br>" +
             "lat: " + _fmt(subset["latitude"], 4) + "<br>" +
             "lon: " + _fmt(subset["longitude"], 4) + "<br>" +
-            "score: " + _fmt(subset["anomaly_score"], 4)
+            score_text
         )
 
         if "vessel_type" in subset.columns:

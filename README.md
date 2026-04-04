@@ -69,6 +69,7 @@ Artefactos exportados en `models/`:
 
 - `isolation_forest_model.joblib`
 - `scaler.joblib`
+- `context_model.joblib`
 - `metadata.json`
 
 Features actuales del modelo:
@@ -80,6 +81,10 @@ Features actuales del modelo:
 - `sog`
 - `cog_sin`, `cog_cos`
 - `heading_sin`, `heading_cos`
+- `sog_ctx_logprob`
+- `cog_ctx_logprob`
+- `vessel_type_ctx_logprob`
+- `status_ctx_logprob`
 
 Transformacion de `vessel_type`:
 
@@ -101,7 +106,8 @@ Salida:
 
 - `plots/anomalies_scatter_<suffix>.html`
 
-El tooltip del grafico interactivo muestra `anomaly_score`, `vessel_type`, `vessel_type_mapped`, `status` y `sog`.
+El tooltip del grafico interactivo muestra `anomaly_score` con `fiabilidad (%)` relativa,
+ademas de `vessel_type`, `vessel_type_mapped`, `status` y `sog`.
 
 Inferencia por lote con el modelo que elijas:
 
