@@ -3,8 +3,8 @@ predict_realtime.py
 Inferencia: carga modelo/scaler y predice anomalías basadas en lat/lon.
 """
 
+import argparse
 import os
-import sys
 
 import numpy as np
 import pandas as pd
@@ -24,6 +24,7 @@ class AISAnomalyDetector:
 
         self.model, self.scaler, self.meta = load_artifacts(model_path, scaler_path, metadata_path)
         self.feature_cols = self.meta["feature_cols"]
+        self.discard_missing_status = bool(self.meta.get("preprocessing", {}).get("discard_missing_status", False))
         self._shap_explainer = None
 
     def _get_shap_explainer(self):
@@ -87,6 +88,38 @@ class AISAnomalyDetector:
             else:
                 df["vessel_type_mapped"] = 0
 
+        # Status: imputa 15 si falta
+        if "status" not in df.columns:
+            df["status"] = 15
+        else:
+            df["status"] = df["status"].fillna(15).astype("int32")
+
+        # SOG (Speed Over Ground)
+        if "sog" not in df.columns:
+            df["sog"] = 0.0
+        else:
+            df["sog"] = pd.to_numeric(df["sog"], errors="coerce").fillna(0).astype("float32")
+
+        # COG sin/cos
+        if "cog_sin" not in df.columns or "cog_cos" not in df.columns:
+            if "cog" in df.columns:
+                cog_rad = pd.to_numeric(df["cog"], errors="coerce") * (3.14159265 / 180.0)
+                df["cog_sin"] = np.sin(cog_rad).fillna(0).astype("float32")
+                df["cog_cos"] = np.cos(cog_rad).fillna(0).astype("float32")
+            else:
+                df["cog_sin"] = 0.0
+                df["cog_cos"] = 0.0
+
+        # Heading sin/cos
+        if "heading_sin" not in df.columns or "heading_cos" not in df.columns:
+            if "heading" in df.columns:
+                heading_rad = pd.to_numeric(df["heading"], errors="coerce") * (3.14159265 / 180.0)
+                df["heading_sin"] = np.sin(heading_rad).fillna(0).astype("float32")
+                df["heading_cos"] = np.cos(heading_rad).fillna(0).astype("float32")
+            else:
+                df["heading_sin"] = 0.0
+                df["heading_cos"] = 0.0
+
         missing = [c for c in self.feature_cols if c not in df.columns]
         if missing:
             raise ValueError(f"Columnas faltantes: {missing}")
@@ -102,10 +135,26 @@ class AISAnomalyDetector:
 
     def predict_record(self, record: dict) -> dict:
         """Predice un registro individual."""
+        # Convertir ángulos a radianes para sin/cos
+        def to_trig(angle_deg):
+            if pd.isna(angle_deg) or angle_deg is None:
+                return 0.0, 0.0
+            rad = float(angle_deg) * (3.14159265 / 180.0)
+            return float(np.sin(rad)), float(np.cos(rad))
+
+        cog_sin, cog_cos = to_trig(record.get("cog"))
+        heading_sin, heading_cos = to_trig(record.get("heading"))
+
         row = {
             "latitude": record.get("latitude", np.nan),
             "longitude": record.get("longitude", np.nan),
             "vessel_type_mapped": map_vessel_type(record.get("vessel_type", np.nan)),
+            "status": int(record.get("status", 15)) if record.get("status") is not None else 15,
+            "sog": float(record.get("sog", 0.0)) if record.get("sog") is not None else 0.0,
+            "cog_sin": cog_sin,
+            "cog_cos": cog_cos,
+            "heading_sin": heading_sin,
+            "heading_cos": heading_cos,
         }
         df = pd.DataFrame([row])
         result = self.predict(df)
@@ -118,12 +167,17 @@ class AISAnomalyDetector:
 
 
 if __name__ == "__main__":
-    csv_path = sys.argv[1] if len(sys.argv) > 1 else CSV_FILE
+    parser = argparse.ArgumentParser(description="Inferencia AIS con modelo entrenado.")
+    parser.add_argument("csv_path", nargs="?", default=CSV_FILE)
+    parser.add_argument("--models-dir", default=MODELS_DIR,
+                        help="Directorio desde el que cargar modelo/scaler/metadata")
+    args = parser.parse_args()
 
-    detector = AISAnomalyDetector()
+    detector = AISAnomalyDetector(models_dir=args.models_dir)
 
-    print(f"[INFO] Cargando y preprocesando '{csv_path}' …\n")
-    df = preprocess(csv_path)
+    print(f"[INFO] Cargando y preprocesando '{args.csv_path}' …\n")
+    print(f"[INFO] Modo status del modelo: discard_missing_status={detector.discard_missing_status}")
+    df = preprocess(args.csv_path, discard_missing_status=detector.discard_missing_status)
 
     print("[INFO] Ejecutando inferencia …")
     result = detector.predict(df)

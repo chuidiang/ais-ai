@@ -31,7 +31,12 @@ CONTAMINATION = 0.01
 N_ESTIMATORS = 100
 MAX_SAMPLES = 1024
 RANDOM_STATE = 42
-FEATURE_COLS = ["latitude", "longitude", "vessel_type_mapped"]
+FEATURE_COLS = [
+    "latitude", "longitude", "vessel_type_mapped",
+    "status", "sog",
+    "cog_sin", "cog_cos",
+    "heading_sin", "heading_cos"
+]
 
 
 def prepare_features(df: pd.DataFrame) -> tuple[np.ndarray, StandardScaler]:
@@ -82,7 +87,8 @@ def predict_and_label(
 
 def save_anomaly_report(df: pd.DataFrame, path: str) -> None:
     anomalies = df[df["is_anomaly"] == -1][
-        ["mmsi", "vessel_name", "base_date_time", "latitude", "longitude", "vessel_type_mapped", "anomaly_score"]
+        ["mmsi", "vessel_name", "base_date_time", "latitude", "longitude", "vessel_type_mapped",
+         "sog", "status", "anomaly_score"]
     ].sort_values("anomaly_score")
     anomalies.to_csv(path, index=False)
     print(f"[INFO] Resumen guardado: {path} ({len(anomalies):,} anomalías)")
@@ -99,6 +105,7 @@ def save_artifacts(
     max_samples: int = MAX_SAMPLES,
     random_state: int = RANDOM_STATE,
     models_dir: str = MODELS_DIR,
+    discard_missing_status: bool = False,
 ) -> None:
     """Guarda modelo, scaler y metadata."""
     os.makedirs(models_dir, exist_ok=True)
@@ -119,6 +126,9 @@ def save_artifacts(
             "max_samples": max_samples,
             "contamination": contamination,
             "random_state": random_state,
+        },
+        "preprocessing": {
+            "discard_missing_status": discard_missing_status,
         },
     }
     with open(metadata_path, "w", encoding="utf-8") as f:
@@ -151,23 +161,30 @@ def main(
     random_state: int = RANDOM_STATE,
     models_dir: str = MODELS_DIR,
     anomalies_csv: str = ANOMALIES_CSV,
+    discard_missing_status: bool = False,
 ) -> pd.DataFrame:
-    df = preprocess(csv_path)
+    df = preprocess(csv_path, discard_missing_status=discard_missing_status)
     X_scaled, scaler = prepare_features(df)
     model = train_model(X_scaled, contamination, n_estimators, max_samples, random_state)
     df = predict_and_label(df, model, X_scaled)
-    save_artifacts(model, scaler, contamination, n_estimators, max_samples, random_state, models_dir)
+    save_artifacts(model, scaler, contamination, n_estimators, max_samples, random_state, models_dir, discard_missing_status)
     save_anomaly_report(df, anomalies_csv)
     return df
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Entrena modelo AIS (lat/lon).")
+    parser = argparse.ArgumentParser(description="Entrena modelo AIS con features circulares y de velocidad.")
     parser.add_argument("csv_path", nargs="?", default=CSV_FILE)
     parser.add_argument("--contamination", type=float, default=CONTAMINATION)
     parser.add_argument("--n-estimators", type=int, default=N_ESTIMATORS)
     parser.add_argument("--max-samples", type=int, default=MAX_SAMPLES)
     parser.add_argument("--random-state", type=int, default=RANDOM_STATE)
+    parser.add_argument("--models-dir", default=MODELS_DIR,
+                        help="Directorio de salida para modelo/scaler/metadata")
+    parser.add_argument("--anomalies-csv", default=ANOMALIES_CSV,
+                        help="Ruta del CSV resumen de anomalías")
+    parser.add_argument("--discard-missing-status", action="store_true", default=False,
+                        help="Descarta registros con status nulo en lugar de imputa a 15")
     args = parser.parse_args()
 
     main(
@@ -176,4 +193,7 @@ if __name__ == "__main__":
         n_estimators=args.n_estimators,
         max_samples=args.max_samples,
         random_state=args.random_state,
+        models_dir=args.models_dir,
+        anomalies_csv=args.anomalies_csv,
+        discard_missing_status=args.discard_missing_status,
     )

@@ -5,6 +5,7 @@ Solo mantiene lat/lon para detección de anomalías espaciales.
 """
 
 import os
+import numpy as np
 import pandas as pd
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -53,7 +54,7 @@ def process_datetime(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+def clean_data(df: pd.DataFrame, discard_missing_status: bool = False) -> pd.DataFrame:
     """Limpia valores nulos y erróneos."""
     before = len(df)
     df = df.dropna(subset=["latitude", "longitude"])
@@ -75,16 +76,54 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
         df["vessel_type_mapped"] = df["vessel_type_mapped"].astype("int32")
     else:
         df["vessel_type_mapped"] = 0
+
+    # Status: imputa 15 (unknown/default) para nulos, o descarta si se especifica
+    if "status" in df.columns:
+        status_nulos_antes = df["status"].isna().sum()
+        if discard_missing_status and status_nulos_antes > 0:
+            df = df.dropna(subset=["status"])
+            print(f"[INFO] Descartadas {status_nulos_antes:,} filas con status nulo (opción: discard_missing_status=True)")
+        else:
+            df["status"] = df["status"].fillna(15).astype("int32")
+            if status_nulos_antes > 0:
+                print(f"[INFO] {status_nulos_antes:,} valores status nulos imputados como 15")
+    else:
+        df["status"] = 15
+
+    # COG (Course Over Ground): sin/cos para circulariedad
+    if "cog" in df.columns:
+        cog_rad = pd.to_numeric(df["cog"], errors="coerce") * (3.14159265 / 180.0)
+        df["cog_sin"] = np.sin(cog_rad).fillna(0).astype("float32")
+        df["cog_cos"] = np.cos(cog_rad).fillna(0).astype("float32")
+    else:
+        df["cog_sin"] = 0.0
+        df["cog_cos"] = 0.0
+
+    # Heading: sin/cos para circulariedad
+    if "heading" in df.columns:
+        heading_rad = pd.to_numeric(df["heading"], errors="coerce") * (3.14159265 / 180.0)
+        df["heading_sin"] = np.sin(heading_rad).fillna(0).astype("float32")
+        df["heading_cos"] = np.cos(heading_rad).fillna(0).astype("float32")
+    else:
+        df["heading_sin"] = 0.0
+        df["heading_cos"] = 0.0
+
+    # SOG (Speed Over Ground): velocidad en nudos
+    if "sog" in df.columns:
+        df["sog"] = pd.to_numeric(df["sog"], errors="coerce").fillna(0).astype("float32")
+    else:
+        df["sog"] = 0.0
+
     after = len(df)
     print(f"[INFO] Limpieza: {before:,} -> {after:,} filas")
     return df.reset_index(drop=True)
 
 
-def preprocess(path: str = CSV_FILE) -> pd.DataFrame:
+def preprocess(path: str = CSV_FILE, discard_missing_status: bool = False) -> pd.DataFrame:
     """Pipeline de preprocesado."""
     df = load_csv(path)
     df = process_datetime(df)
-    df = clean_data(df)
+    df = clean_data(df, discard_missing_status=discard_missing_status)
     print(f"[INFO] Filas finales: {len(df):,}\n")
     return df
 

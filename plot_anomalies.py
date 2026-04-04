@@ -84,10 +84,11 @@ def load_world_lines(shp_path: str = WORLD_SHP):
         return []
 
 
-def load_and_predict(csv_path: str = CSV_FILE):
+def load_and_predict(csv_path: str = CSV_FILE, models_dir: str | None = None):
     print("[INFO] Preprocesando …")
-    df = preprocess(csv_path)
-    detector = AISAnomalyDetector()
+    detector = AISAnomalyDetector(models_dir=models_dir) if models_dir else AISAnomalyDetector()
+    print(f"[INFO] Modo status del modelo: discard_missing_status={detector.discard_missing_status}")
+    df = preprocess(csv_path, discard_missing_status=detector.discard_missing_status)
     print("[INFO] Prediciendo …")
     df = detector.predict(df)
     return df
@@ -124,6 +125,10 @@ def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
             hover = hover + "<br>vessel_type: " + _fmt(subset["vessel_type"], 0)
         if "vessel_type_mapped" in subset.columns:
             hover = hover + "<br>vessel_type_mapped: " + _fmt(subset["vessel_type_mapped"], 0)
+        if "status" in subset.columns:
+            hover = hover + "<br>status: " + _fmt(subset["status"], 0)
+        if "sog" in subset.columns:
+            hover = hover + "<br>sog: " + _fmt(subset["sog"], 2)
         if name.lower().startswith("anomaly") and "anomaly_reason" in subset.columns:
             hover = hover + "<br>Motivo: " + subset["anomaly_reason"].fillna("").astype(str)
 
@@ -166,8 +171,8 @@ def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
     print(f"[INFO] Gráfico guardado: {out_path}")
 
 
-def main(csv_path: str = CSV_FILE, name_suffix: str | None = None) -> None:
-    df = load_and_predict(csv_path)
+def main(csv_path: str = CSV_FILE, name_suffix: str | None = None, models_dir: str | None = None) -> None:
+    df = load_and_predict(csv_path, models_dir=models_dir)
     anomalies, normals = build_plot_df(df)
     html_out = build_output_path(name_suffix)
     print("[INFO] Generando gráfico …")
@@ -178,6 +183,8 @@ def main(csv_path: str = CSV_FILE, name_suffix: str | None = None) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot AIS anomalies.")
     parser.add_argument("csv_path", nargs="?", default=CSV_FILE)
+    parser.add_argument("--models-dir", default=None,
+                        help="Directorio desde el que cargar modelo/scaler/metadata")
     parser.add_argument("--suffix", default=datetime.now().strftime("%Y%m%d_%H%M%S"))
     args = parser.parse_args()
-    main(csv_path=args.csv_path, name_suffix=args.suffix)
+    main(csv_path=args.csv_path, name_suffix=args.suffix, models_dir=args.models_dir)

@@ -47,6 +47,18 @@ Esos tres son los únicos ficheros del shapefile necesarios para que el código 
 python train_anomaly.py
 ```
 
+Dos modos de entrenamiento para `status`:
+
+- `default` (recomendado): imputa `status` faltante como `15`.
+- `--discard-missing-status`: descarta filas con `status` nulo.
+
+Para conservar ambos modelos sin sobrescribir artefactos, usa carpetas distintas:
+
+```powershell
+python train_anomaly.py --models-dir models\status_imputed --anomalies-csv data\anomalies_status_imputed.csv
+python train_anomaly.py --discard-missing-status --models-dir models\status_filtered --anomalies-csv data\anomalies_status_filtered.csv
+```
+
 Para una prueba rápida con el dataset de ejemplo puedes generar gráficos directamente:
 
 ```powershell
@@ -64,6 +76,10 @@ Features actuales del modelo:
 - `latitude`
 - `longitude`
 - `vessel_type_mapped` (transformado)
+- `status` (imputado a 15 o filtrado, según modo)
+- `sog`
+- `cog_sin`, `cog_cos`
+- `heading_sin`, `heading_cos`
 
 Transformacion de `vessel_type`:
 
@@ -78,14 +94,21 @@ Transformacion de `vessel_type`:
 ## 5) Generar graficos de anomalias
 
 ```powershell
-python plot_anomalies.py --suffix con_shap_reason
+python plot_anomalies.py --models-dir models\status_imputed --suffix con_shap_reason
 ```
 
 Salida:
 
 - `plots/anomalies_scatter_<suffix>.html`
 
-El tooltip del grafico interactivo muestra `anomaly_score`, `vessel_type` y `vessel_type_mapped`.
+El tooltip del grafico interactivo muestra `anomaly_score`, `vessel_type`, `vessel_type_mapped`, `status` y `sog`.
+
+Inferencia por lote con el modelo que elijas:
+
+```powershell
+python predict_realtime.py data\ais-data-sample.csv --models-dir models\status_imputed
+python predict_realtime.py data\ais-data-sample.csv --models-dir models\status_filtered
+```
 
 Si existe `shp/world.shp`, se dibuja el contorno del mapa mundial como capa base.
 
