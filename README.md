@@ -1,7 +1,7 @@
 # AIS Anomaly Detection (H3)
 
 Proyecto Python para deteccion de anomalias AIS con `IsolationForest`,
-contexto geografico H3 y graficos interactivos.
+contexto geografico H3 + tipo de barco + franja horaria y graficos interactivos.
 
 ## Scripts principales (estado actual)
 
@@ -39,6 +39,12 @@ Los datos para entrenamiento y ejemplo se han bajado de https://coast.noaa.gov/h
 
 ```powershell
 python train_anomaly.py
+```
+
+Ejemplo con configuracion explicita del contexto temporal:
+
+```powershell
+python train_anomaly.py data/ais-data.csv --context-hour-mode bucket --hour-bucket-size 6 --min-obs-context 100
 ```
 
 Artefactos generados en `models/`:
@@ -114,16 +120,19 @@ El modelo usa `IsolationForest` con:
 - `contamination=0.01`
 - `random_state=42`
 
-Features actuales (23):
+Features actuales (29):
 
 - Temporales: `hour_sin`, `hour_cos`, `day_of_week`, `month`
 - Dinamicas: `sog`, `cog`, `heading`, `status`
 - Estaticas: `vessel_type`, `length`, `width`, `draft`
-- Contexto H3:
+- Contexto local `H3 + vessel_type + franja horaria` con fallback jerarquico:
   - `hex_log_density`, `is_sparse_hex`, `is_new_hex`
   - `sog_delta_hex_med`, `sog_z_hex`
   - `cog_delta_sin_hex`, `cog_delta_cos_hex`
   - `heading_delta_sin_hex`, `heading_delta_cos_hex`
+  - `length_delta_hex_med`, `length_z_hex`
+  - `width_delta_hex_med`, `width_z_hex`
+  - `draft_delta_hex_med`, `draft_z_hex`
   - `vtype_mode_share_hex`, `is_unusual_vtype_hex`
 
 Nota: `cargo` ya no se usa como feature del modelo.
@@ -159,13 +168,16 @@ Estos son los parametros principales que controlan el entrenamiento actual en `t
 - Imputacion: `SimpleImputer(strategy="median")`.
 - Escalado: `StandardScaler()`.
 
-### Contexto geografico H3
+### Contexto geografico H3 y temporal
 
 Definidos en `load_ais_data.py` y usados durante entrenamiento/inferencia:
 
 - `H3_RESOLUTION = 7`.
 - `H3_PARENT_RESOLUTION = 5`.
-- `H3_MIN_OBS = 500`: umbral de cobertura local.
+- `H3_MIN_OBS = 500`: umbral para usar contexto H3 puro.
+- `H3_CONTEXT_MIN_OBS = 100`: umbral para usar contexto compuesto `H3 + vessel_type + franja`.
+- `CONTEXT_HOUR_MODE = "bucket"`: por defecto usa franjas horarias.
+- `HOUR_BUCKET_SIZE = 6`: 4 franjas de 6 horas por defecto.
 - `H3_VTYPE_MIN_SHARE = 0.55`: share minimo para activar rareza de tipo.
 
 ### Features efectivas del modelo
@@ -175,16 +187,57 @@ Definidos en `load_ais_data.py` y usados durante entrenamiento/inferencia:
 - Temporales: `hour_sin`, `hour_cos`, `day_of_week`, `month`.
 - Dinamicas: `sog`, `cog`, `heading`, `status`.
 - Estaticas: `vessel_type`, `length`, `width`, `draft`.
-- H3: `hex_log_density`, `is_sparse_hex`, `is_new_hex`,
+- Contexto local: `hex_log_density`, `is_sparse_hex`, `is_new_hex`,
   `sog_delta_hex_med`, `sog_z_hex`,
   `cog_delta_sin_hex`, `cog_delta_cos_hex`,
   `heading_delta_sin_hex`, `heading_delta_cos_hex`,
+  `length_delta_hex_med`, `length_z_hex`,
+  `width_delta_hex_med`, `width_z_hex`,
+  `draft_delta_hex_med`, `draft_z_hex`,
   `vtype_mode_share_hex`, `is_unusual_vtype_hex`.
 
 ### Artefactos que reflejan esta configuracion
 
 - `models/metadata.json`: features finales e hiperparametros.
-- `models/h3_config.json`: configuracion H3 y estadisticas globales.
+- `models/h3_config.json`: configuracion H3, contexto temporal y estadisticas globales.
+
+### Fallback del contexto local
+
+Para velocidad, rumbo, orientacion y tamano, el contexto se resuelve en este orden:
+
+1. `(h3_res7, vessel_type, time_band)`
+2. `(h3_res7, vessel_type)`
+3. `(h3_res7, time_band)`
+4. `h3_res7`
+5. `(h3_res5, vessel_type, time_band)`
+6. `(h3_res5, vessel_type)`
+7. `(h3_res5, time_band)`
+8. `h3_res5`
+9. global
+
+Para rareza de tipo de barco, el fallback es:
+
+1. `(h3_res7, time_band)`
+2. `h3_res7`
+3. `(h3_res5, time_band)`
+4. `h3_res5`
+5. global
+
+### Parametros nuevos de `train_anomaly.py`
+
+Puedes jugar con estos parametros desde PowerShell:
+
+```powershell
+python train_anomaly.py --context-hour-mode bucket --hour-bucket-size 6 --min-obs-context 100 --min-obs-hex 500 --vtype-min-share 0.55
+```
+
+- `--context-hour-mode {bucket,exact}`: usa franjas o la hora exacta `0..23`.
+- `--hour-bucket-size N`: tamano de la franja horaria cuando el modo es `bucket`.
+- `--min-obs-context N`: minimo de observaciones para aceptar el contexto fino.
+- `--min-obs-hex N`: minimo de observaciones para aceptar el contexto H3 puro.
+- `--vtype-min-share X`: share minimo para marcar `is_unusual_vtype_hex`.
+- `--models-dir DIR`: carpeta de salida de artefactos.
+- `--anomalies-csv PATH`: ruta del resumen CSV de anomalias.
 
 ## Autoria
 

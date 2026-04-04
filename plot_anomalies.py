@@ -197,6 +197,11 @@ def build_plot_df(df):
 # Campos que se muestran en el tooltip (en orden)
 FEATURE_FIELDS = [
     ("h3_res7",              "h3_cell"),
+    ("h3_res5",              "h3_parent"),
+    ("time_band",            "time_band"),
+    ("time_band_label",      "time_band_label"),
+    ("context_level",        "context_level"),
+    ("vtype_context_level",  "vtype_context_level"),
     ("hour_sin",             "hour_sin"),
     ("hour_cos",             "hour_cos"),
     ("day_of_week",          "day_of_week"),
@@ -210,17 +215,32 @@ FEATURE_FIELDS = [
     ("width",                "width_m"),
     ("draft",                "draft_m"),
     ("cargo",                "cargo"),
-    ("hex_log_density",      "hex_log_density"),
+    ("hex_log_density",      "ctx_log_density"),
+    ("context_obs_count",    "context_obs_count"),
+    ("vtype_context_obs_count", "vtype_context_obs_count"),
     ("is_sparse_hex",        "is_sparse_hex"),
     ("is_new_hex",           "is_new_hex"),
     ("sog_delta_hex_med",    "sog_delta_hex_med"),
     ("sog_z_hex",            "sog_z_hex"),
+    ("length_delta_hex_med", "length_delta_hex_med"),
+    ("length_z_hex",         "length_z_hex"),
+    ("width_delta_hex_med",  "width_delta_hex_med"),
+    ("width_z_hex",          "width_z_hex"),
+    ("draft_delta_hex_med",  "draft_delta_hex_med"),
+    ("draft_z_hex",          "draft_z_hex"),
+    ("vtype_mode_share_hex", "vtype_mode_share_hex"),
+    ("is_unusual_vtype_hex", "is_unusual_vtype_hex"),
 ]
 
 INT_COLS    = {"day_of_week", "month", "status", "vessel_type", "cargo",
-               "is_sparse_hex", "is_new_hex"}
+               "is_sparse_hex", "is_new_hex", "is_unusual_vtype_hex"}
 FLOAT2_COLS = {"sog", "cog", "length", "width", "draft",
-               "sog_delta_hex_med", "sog_z_hex", "hex_log_density"}
+               "sog_delta_hex_med", "sog_z_hex", "hex_log_density",
+               "context_obs_count", "vtype_context_obs_count",
+               "length_delta_hex_med", "length_z_hex",
+               "width_delta_hex_med", "width_z_hex",
+               "draft_delta_hex_med", "draft_z_hex",
+               "vtype_mode_share_hex", "time_band"}
 
 
 def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
@@ -277,7 +297,7 @@ def plot_plotly(anomalies, normals, out_path: str = HTML_OUT) -> None:
     fig.add_trace(make_trace(anomalies, "Anomalo (-1)", COLOR_ANOMALY, 0.80, 5))
 
     fig.update_layout(
-        title=dict(text="Deteccion de Anomalias AIS — Scatter Geografico (H3)", font_size=20),
+        title=dict(text="Deteccion de Anomalias AIS — Scatter Geografico (H3 + tipo + hora)", font_size=20),
         xaxis=dict(title="Longitud", showgrid=True, gridcolor="#e0e0e0"),
         yaxis=dict(title="Latitud",  showgrid=True, gridcolor="#e0e0e0",
                    scaleanchor="x", scaleratio=1),
